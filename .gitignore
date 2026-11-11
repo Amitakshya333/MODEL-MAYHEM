@@ -5,6 +5,5 @@ pcb_runs/
 runs/
 dataset/
 *.zip
-*.pt
-*.pth
 pcb_ensemble_temp/
+yolo11n.pt
