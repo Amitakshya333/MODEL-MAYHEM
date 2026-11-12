@@ -869,32 +869,50 @@ def test_submissions_codesplinter_inference_cwd_isolated(tmp_path):
     """Verify inference.py inside submissions/CodeSplinter succeeds when CWD is submissions/CodeSplinter."""
     import sys
     import subprocess
+    import shutil
     sub_dir = Path("submissions/CodeSplinter").resolve()
-    result = subprocess.run(
-        [sys.executable, "inference.py", "--imgsz", "640", "--device", "cpu"],
-        cwd=str(sub_dir),
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == 0, f"inference.py failed in submissions dir:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    assert (sub_dir / "submission.csv").is_file()
-    assert verify_submission(str(sub_dir / "submission.csv")) is True
+    target_sub = sub_dir / "submission.csv"
+    backup = sub_dir / "submission_backup_inf.csv"
+    if target_sub.is_file():
+        shutil.copy2(target_sub, backup)
+    try:
+        result = subprocess.run(
+            [sys.executable, "inference.py", "--imgsz", "640", "--device", "cpu"],
+            cwd=str(sub_dir),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, f"inference.py failed in submissions dir:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        assert target_sub.is_file()
+        assert verify_submission(str(target_sub)) is True
+    finally:
+        if backup.is_file():
+            shutil.move(backup, target_sub)
 
 
 def test_submissions_codesplinter_predict_cwd_isolated():
     """Verify predict.py inside submissions/CodeSplinter succeeds when CWD is submissions/CodeSplinter."""
     import sys
     import subprocess
+    import shutil
     sub_dir = Path("submissions/CodeSplinter").resolve()
-    result = subprocess.run(
-        [sys.executable, "predict.py", "--imgsz", "640", "--device", "cpu"],
-        cwd=str(sub_dir),
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == 0, f"predict.py failed in submissions dir:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    target_sub = sub_dir / "submission.csv"
+    backup = sub_dir / "submission_backup_pred.csv"
+    if target_sub.is_file():
+        shutil.copy2(target_sub, backup)
+    try:
+        result = subprocess.run(
+            [sys.executable, "predict.py", "--imgsz", "640", "--device", "cpu"],
+            cwd=str(sub_dir),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, f"predict.py failed in submissions dir:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    finally:
+        if backup.is_file():
+            shutil.move(backup, target_sub)
 
 
 
