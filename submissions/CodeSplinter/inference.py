@@ -29,6 +29,17 @@ CANONICAL_CLASSES = [
     "spurious_copper",
 ]
 
+# Advanced Class-Specific Geometric Size Limits (Normalized width/height limits)
+# Prevents large false-positive hallucinations at low confidence thresholds (conf=0.001)
+CLASS_SIZE_LIMITS = {
+    "open_circuit": {"max_w": 0.15, "max_h": 0.15},
+    "short": {"max_w": 0.18, "max_h": 0.18},
+    "spur": {"max_w": 0.12, "max_h": 0.12},
+    "spurious_copper": {"max_w": 0.12, "max_h": 0.12},
+    "mouse_bite": {"max_w": 0.10, "max_h": 0.10},
+    "missing_hole": {"max_w": 0.15, "max_h": 0.15},
+}
+
 # Supported image extensions
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
@@ -136,11 +147,11 @@ def run_inference(
     weights_path: Optional[Union[str, List[str]]] = None,
     source_path: Optional[str] = None,
     output_csv: str = "submission.csv",
-    conf_threshold: float = 0.25,
-    iou_threshold: float = 0.50,
-    imgsz: int = 1024,
+    conf_threshold: float = 0.001,
+    iou_threshold: float = 0.60,
+    imgsz: int = 640,
     device: str = "",
-    use_tta: bool = False,
+    use_tta: bool = True,
     save_visuals: bool = False,
     visuals_dir: str = "predictions_visualized",
     batch_size: int = 16,
@@ -302,6 +313,14 @@ def run_inference(
 
                     class_name = idx_to_name.get(int(cls_idx), CANONICAL_CLASSES[int(cls_idx) % len(CANONICAL_CLASSES)])
 
+                    # Advanced geometric filtering: eliminate unnaturally large hallucinations at low confidence
+                    norm_w = (x2 - x1) / float(orig_w)
+                    norm_h = (y2 - y1) / float(orig_h)
+                    if class_name in CLASS_SIZE_LIMITS:
+                        limit = CLASS_SIZE_LIMITS[class_name]
+                        if norm_w > limit["max_w"] or norm_h > limit["max_h"]:
+                            continue
+
                     # Round coordinates to 2 decimal places (or integer pixels)
                     # Note: Original image pixel coordinates
                     rows.append({
@@ -347,11 +366,11 @@ def main():
     parser.add_argument("--source", type=str, default=None,
                         help="Path to image file or directory of test images. Default: auto-detects test/sample images.")
     parser.add_argument("--output", type=str, default="submission.csv", help="Path for output submission CSV")
-    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold (default: 0.25)")
-    parser.add_argument("--iou", type=float, default=0.50, help="NMS IoU threshold (default: 0.50)")
-    parser.add_argument("--imgsz", type=int, default=1024, help="Input image size (default: 1024)")
+    parser.add_argument("--conf", type=float, default=0.001, help="Confidence threshold (default: 0.001 for maximum mAP)")
+    parser.add_argument("--iou", type=float, default=0.60, help="NMS IoU threshold (default: 0.60)")
+    parser.add_argument("--imgsz", type=int, default=640, help="Input image size (default: 640)")
     parser.add_argument("--device", type=str, default="", help="Inference device: 'cpu', '0', 'cuda:0', etc.")
-    parser.add_argument("--tta", action="store_true", help="Enable Test-Time Augmentation (TTA)")
+    parser.add_argument("--no-tta", action="store_true", help="Disable Test-Time Augmentation (TTA). TTA is enabled by default.")
     parser.add_argument("--save-visuals", action="store_true", help="Save annotated visualization images")
     parser.add_argument("--visuals-dir", type=str, default="predictions_visualized", help="Directory for visuals")
     parser.add_argument("--batch", type=int, default=16, help="Batch size for inference (default: 16)")
@@ -381,7 +400,7 @@ def main():
         iou_threshold=args.iou,
         imgsz=args.imgsz,
         device=args.device,
-        use_tta=args.tta,
+        use_tta=not args.no_tta,
         save_visuals=args.save_visuals,
         visuals_dir=args.visuals_dir,
         batch_size=args.batch,

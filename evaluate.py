@@ -66,7 +66,7 @@ def evaluate_model(
     weights: str = "",
     data_yaml: str = "",
     split: str = "val",
-    imgsz: int = 1024,
+    imgsz: int = 640,
     batch: int = 16,
     device: str = "",
     use_tta: bool = False,
@@ -212,7 +212,7 @@ def main():
     parser.add_argument("--weights", type=str, default=None, help="Path to model weights (.pt). Default: auto-detects weights/best.pt.")
     parser.add_argument("--data", type=str, default=None, help="Path to dataset.yaml. Default: auto-detects dataset.yaml.")
     parser.add_argument("--split", type=str, default="val", choices=["val", "test", "train"], help="Split to evaluate")
-    parser.add_argument("--imgsz", type=int, default=1024, help="Image size")
+    parser.add_argument("--imgsz", type=int, default=640, help="Image size (default: 640)")
     parser.add_argument("--batch", type=int, default=16, help="Batch size")
     parser.add_argument("--device", type=str, default="", help="Device: '0', 'cpu', etc.")
     parser.add_argument("--tta", action="store_true", help="Enable Test-Time Augmentation")

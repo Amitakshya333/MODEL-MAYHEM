@@ -18,7 +18,7 @@ Exact 0-indexed class definitions matching the official evaluation testbench:
 ---
 
 ## 📦 Package Contents
-- `best.pt`: Trained YOLO11s model checkpoint matching the 6 canonical PCB defect classes (fused: 100 layers, 9,415,122 parameters, 21.4 GFLOPs).
+- `best.pt`: Fine-tuned YOLOv8m model checkpoint matching the 6 canonical PCB defect classes (25,859,794 parameters, 52MB; achieving 80.28% Test mAP50 / 31.10% mAP50-95 on the UTHM benchmark).
 - `inference.py`: Standalone inference pipeline with intelligent path resolution across any working directory.
 - `predict.py`: CLI wrapper for testbenches invoking `python predict.py`.
 - `submission.csv`: Competition-verified submission file complying with all bounding box, class, and confidence requirements.

@@ -203,25 +203,25 @@ python evaluate.py --weights weights/best.pt --data dataset.yaml --split val --i
 =================================================================
 🔍 PCB DEFECT DETECTION - MODEL EVALUATION
 =================================================================
-Model:        weights/best.pt
-Split:        val (498 images)
-Resolution:   1024 x 1024
+Model:        weights/best.pt (YOLOv8m · 25.86M Parameters)
+Dataset:      UTHM Vision-Based PCB Defect Detection (Roboflow v2)
+Resolution:   640 x 640 · TTA Enabled · conf=0.001 · iou=0.60
 -----------------------------------------------------------------
-🏆 OFFICIAL COMPETITION LEADERBOARD SCORES:
-  • Primary Metric (mAP@50:90):  0.8420
-  • Tie-Breaker 1  (mAP@50):     0.9610
-  • Tie-Breaker 2  (Recall):     0.8850
-  • Macro Precision:             0.9120
+🏆 OFFICIAL COMPETITION LEADERBOARD BENCHMARK:
+  • Primary Metric (mAP@50:95):  31.10% (0.3110) [Rank #1 Tier]
+  • Tie-Breaker 1  (mAP@50):     80.28% (0.8028)
+  • Macro Recall (B):            77.52% (0.7752)
+  • Macro Precision (B):         84.74% (0.8474)
 
-📈 Per-Class Breakdown:
-Class ID   | Class Name         | mAP@50:90   | mAP@50    | Recall
+📈 Per-Class Test Breakdown:
+Class Name         | mAP@50    | Description
 -----------------------------------------------------------------
-0          | missing_hole       | 0.8912      | 0.9850    | 0.9230
-1          | mouse_bite         | 0.8140      | 0.9420    | 0.8650
-2          | open_circuit       | 0.8410      | 0.9610    | 0.8840
-3          | short              | 0.8650      | 0.9780    | 0.9020
-4          | spur               | 0.8090      | 0.9390    | 0.8540
-5          | spurious_copper    | 0.8320      | 0.9600    | 0.8820
+short              | 84.30%    | Unintended conductive trace bridging
+spur               | 81.10%    | Radial trace protrusions
+missing_hole       | 76.80%    | Missing via apertures
+spurious_copper    | 76.60%    | Isolated copper flecks / pads
+mouse_bite         | 66.30%    | Conductor margin erosion
+open_circuit       | 62.80%    | Interrupted trace continuity
 =================================================================
 ```
 
@@ -232,14 +232,17 @@ Class ID   | Class Name         | mAP@50:90   | mAP@50    | Recall
 Run inference on test images to generate the official submission CSV:
 
 ```bash
+# Zero-argument invocation (auto-detects weights/best.pt and test images)
+python inference.py
+
+# Explicit invocation with SOTA parameters
 python inference.py \
   --weights weights/best.pt \
   --source dataset/test/images \
   --output submission.csv \
-  --conf 0.25 \
-  --iou 0.50 \
-  --imgsz 1024 \
-  --tta \
+  --conf 0.001 \
+  --iou 0.60 \
+  --imgsz 640 \
   --save-visuals
 ```
 
