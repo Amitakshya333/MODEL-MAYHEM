@@ -1,0 +1,16 @@
+image_name,class_name,x_min,y_min,x_max,y_max,confidence
+pcb_001.jpg,missing_hole,358.47,390.94,374.31,411.98,0.7991
+pcb_001.jpg,missing_hole,231.46,390.01,247.01,410.86,0.716
+pcb_001.jpg,missing_hole,182.97,284.37,201.39,308.18,0.6188
+pcb_001.jpg,missing_hole,263.01,7.61,276.52,22.78,0.5445
+pcb_001.jpg,missing_hole,139.24,282.8,154.94,301.58,0.375
+pcb_002.jpg,short,226.07,241.04,249.83,256.57,0.745
+pcb_002.jpg,missing_hole,262.96,7.61,276.57,22.95,0.5246
+pcb_002.jpg,missing_hole,758.99,262.02,776.42,276.52,0.3657
+pcb_002.jpg,spurious_copper,135.72,249.52,149.67,279.98,0.3515
+pcb_003.jpg,missing_hole,114.93,183.66,134.73,205.46,0.8314
+pcb_003.jpg,missing_hole,127.26,331.33,145.21,351.69,0.82
+pcb_003.jpg,missing_hole,426.74,404.64,456.63,432.67,0.8008
+pcb_003.jpg,missing_hole,189.83,152.92,210.69,172.16,0.7773
+pcb_003.jpg,missing_hole,917.69,409.47,935.19,428.32,0.3113
+pcb_003.jpg,spurious_copper,236.27,255.77,271.78,275.42,0.2859

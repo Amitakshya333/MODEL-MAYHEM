@@ -33,6 +33,41 @@ CANONICAL_CLASSES = [
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
 
+def find_default_weights() -> List[str]:
+    """Locate the best trained weights file from standard paths."""
+    candidates = [
+        Path("weights/best.pt"),
+        Path("best.pt"),
+        Path("submissions/CodeSplinter/best.pt"),
+        Path("pcb_runs/yolo11x_pcb/weights/best.pt"),
+    ]
+    for c in candidates:
+        if c.is_file():
+            return [str(c)]
+    return ["weights/best.pt"]
+
+
+def find_default_source() -> str:
+    """Locate test or validation images from standard paths."""
+    candidates = [
+        Path("dataset/test/images"),
+        Path("dataset/test"),
+        Path("sample_images"),
+        Path("dataset/valid/images"),
+        Path("dataset/valid"),
+        Path("dataset/images"),
+        Path("dataset"),
+        Path("test_images"),
+        Path("test"),
+    ]
+    for c in candidates:
+        if c.is_dir():
+            imgs = [f for f in c.iterdir() if f.suffix.lower() in IMAGE_EXTENSIONS]
+            if imgs:
+                return str(c)
+    return "sample_images" if Path("sample_images").is_dir() else "dataset/test/images"
+
+
 def get_image_files(source_path: str) -> List[Path]:
     """Collect image paths from file, directory, or pattern."""
     p = Path(source_path)
@@ -54,8 +89,8 @@ def get_image_files(source_path: str) -> List[Path]:
 
 
 def run_inference(
-    weights_path: Union[str, List[str]],
-    source_path: str,
+    weights_path: Optional[Union[str, List[str]]] = None,
+    source_path: Optional[str] = None,
     output_csv: str = "submission.csv",
     conf_threshold: float = 0.25,
     iou_threshold: float = 0.50,
@@ -74,6 +109,10 @@ def run_inference(
     If multiple weights are provided, automatically executes Weighted Box Fusion (WBF)
     or NMS ensembling across model checkpoints.
     """
+    if not weights_path:
+        weights_path = find_default_weights()
+    if not source_path:
+        source_path = find_default_source()
     # Multi-model ensemble branch
     if isinstance(weights_path, (list, tuple)) and len(weights_path) > 1:
         from ensemble import ensemble_model_checkpoints
@@ -259,9 +298,10 @@ def run_inference(
 
 def main():
     parser = argparse.ArgumentParser(description="PCB Defect Detection Inference & Submission Generator")
-    parser.add_argument("--weights", type=str, nargs="+", required=True,
-                        help="Path(s) to trained YOLO/RT-DETR model weights (.pt). Pass multiple to run an ensemble.")
-    parser.add_argument("--source", type=str, required=True, help="Path to image file or directory of test images")
+    parser.add_argument("--weights", type=str, nargs="+", default=None,
+                        help="Path(s) to trained YOLO/RT-DETR model weights (.pt). Pass multiple to run an ensemble. Default: auto-detects weights/best.pt.")
+    parser.add_argument("--source", type=str, default=None,
+                        help="Path to image file or directory of test images. Default: auto-detects test/sample images.")
     parser.add_argument("--output", type=str, default="submission.csv", help="Path for output submission CSV")
     parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold (default: 0.25)")
     parser.add_argument("--iou", type=float, default=0.50, help="NMS IoU threshold (default: 0.50)")
@@ -281,11 +321,17 @@ def main():
     args = parser.parse_args()
 
     # Pass weights (single string or list)
-    w_arg = args.weights[0] if len(args.weights) == 1 else args.weights
+    if not args.weights:
+        weights_list = find_default_weights()
+    else:
+        weights_list = args.weights
+
+    source_path = args.source if args.source else find_default_source()
+    w_arg = weights_list[0] if len(weights_list) == 1 else weights_list
 
     run_inference(
         weights_path=w_arg,
-        source_path=args.source,
+        source_path=source_path,
         output_csv=args.output,
         conf_threshold=args.conf,
         iou_threshold=args.iou,

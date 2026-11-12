@@ -766,5 +766,70 @@ def test_evaluate_torchvision_pth(tmp_path):
     assert "macro_recall" in metrics
 
 
+def test_weights_best_pt_classes_match_canonical():
+    """Verify that weights/best.pt has exactly the 6 canonical PCB defect classes, preventing class mismatch errors."""
+    import torch
+    weights_path = Path("weights/best.pt")
+    assert weights_path.is_file(), "weights/best.pt must exist"
+
+    ckpt = torch.load(str(weights_path), map_location="cpu", weights_only=False)
+    model = ckpt.get("model")
+    names = model.names if hasattr(model, "names") else ckpt.get("names")
+
+    assert names is not None, "Model must have names dictionary"
+    assert len(names) == 6, f"Expected 6 classes, got {len(names)}: {names}"
+
+    for idx, expected_name in enumerate(CANONICAL_CLASSES):
+        assert names[idx] == expected_name, f"Class {idx} mismatch: expected {expected_name}, got {names[idx]}"
+
+    # Verify COCO classes are absent
+    coco_classes = {"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train"}
+    assert not any(v in coco_classes for v in names.values()), "Model must not contain COCO classes"
+
+
+def test_submissions_codesplinter_best_pt():
+    """Verify that submissions/CodeSplinter/best.pt exists and matches canonical PCB classes."""
+    import torch
+    sub_weights = Path("submissions/CodeSplinter/best.pt")
+    assert sub_weights.is_file(), "submissions/CodeSplinter/best.pt must exist"
+
+    ckpt = torch.load(str(sub_weights), map_location="cpu", weights_only=False)
+    model = ckpt.get("model")
+    names = model.names if hasattr(model, "names") else ckpt.get("names")
+    assert list(names.values()) == CANONICAL_CLASSES
+
+
+def test_dataset_yaml_and_model_classes_aligned():
+    """Verify dataset.yaml and model checkpoint classes are 100% aligned."""
+    import torch
+    import yaml
+    with open("dataset.yaml", "r", encoding="utf-8") as f:
+        data_cfg = yaml.safe_load(f)
+
+    cfg_names = [data_cfg["names"][i] for i in range(len(data_cfg["names"]))]
+    assert cfg_names == CANONICAL_CLASSES
+
+    ckpt = torch.load("weights/best.pt", map_location="cpu", weights_only=False)
+    model_names = list(ckpt["model"].names.values())
+    assert cfg_names == model_names
+
+
+def test_default_inference_execution(tmp_path):
+    """Verify inference.py can be invoked with smart defaults and creates valid CSV."""
+    csv_out = tmp_path / "test_sub.csv"
+    df = run_inference(
+        weights_path="weights/best.pt",
+        source_path="sample_images",
+        output_csv=str(csv_out),
+        conf_threshold=0.25,
+        imgsz=640,
+        device="cpu",
+    )
+    assert Path(csv_out).is_file()
+    assert verify_submission(str(csv_out)) is True
+    assert set(df["class_name"].unique()).issubset(set(CANONICAL_CLASSES))
+
+
+
 
 

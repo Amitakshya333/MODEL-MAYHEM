@@ -348,21 +348,25 @@ test_pipeline.py::test_verify_submission_empty_csv PASSED                [ 39%]
 test_pipeline.py::test_verify_submission_nonexistent PASSED              [ 42%]
 test_pipeline.py::test_train_pipeline_dry_run PASSED                     [ 46%]
 test_pipeline.py::test_evaluate_script_execution PASSED                  [ 50%]
-test_pipeline.py::test_calculate_iou_metric PASSED                       [ 53%]
-test_pipeline.py::test_wbf_fusion_logic PASSED                           [ 57%]
-test_pipeline.py::test_wbf_non_overlapping PASSED                        [ 60%]
-test_pipeline.py::test_nms_fusion_logic PASSED                           [ 64%]
-test_pipeline.py::test_ensemble_csv_files PASSED                         [ 67%]
-test_pipeline.py::test_ensemble_csv_empty PASSED                         [ 71%]
-test_pipeline.py::test_inference_multi_weights_ensemble PASSED           [ 75%]
-test_pipeline.py::test_torchvision_dataset_loader PASSED                 [ 78%]
-test_pipeline.py::test_torchvision_detector_dry_run PASSED               [ 82%]
-test_pipeline.py::test_wbf_same_model_duplicate_suppression PASSED       [ 85%]
-test_pipeline.py::test_torchvision_user_requested_backbones PASSED       [ 89%]
-test_pipeline.py::test_inference_torchvision_pth_direct PASSED           [ 92%]
-test_pipeline.py::test_mixed_checkpoint_ensemble PASSED                  [ 96%]
-test_pipeline.py::test_evaluate_torchvision_pth PASSED                   [100%]
-============================= 28 passed in 29.67s =============================
+test_pipeline.py::test_calculate_iou_metric PASSED                       [ 46%]
+test_pipeline.py::test_wbf_fusion_logic PASSED                           [ 50%]
+test_pipeline.py::test_wbf_non_overlapping PASSED                        [ 53%]
+test_pipeline.py::test_nms_fusion_logic PASSED                           [ 56%]
+test_pipeline.py::test_ensemble_csv_files PASSED                         [ 59%]
+test_pipeline.py::test_ensemble_csv_empty PASSED                         [ 62%]
+test_pipeline.py::test_inference_multi_weights_ensemble PASSED           [ 65%]
+test_pipeline.py::test_torchvision_dataset_loader PASSED                 [ 68%]
+test_pipeline.py::test_torchvision_detector_dry_run PASSED               [ 71%]
+test_pipeline.py::test_wbf_same_model_duplicate_suppression PASSED       [ 75%]
+test_pipeline.py::test_torchvision_user_requested_backbones PASSED       [ 78%]
+test_pipeline.py::test_inference_torchvision_pth_direct PASSED           [ 81%]
+test_pipeline.py::test_mixed_checkpoint_ensemble PASSED                  [ 84%]
+test_pipeline.py::test_evaluate_torchvision_pth PASSED                   [ 87%]
+test_pipeline.py::test_weights_best_pt_classes_match_canonical PASSED   [ 90%]
+test_pipeline.py::test_submissions_codesplinter_best_pt PASSED          [ 93%]
+test_pipeline.py::test_dataset_yaml_and_model_classes_aligned PASSED     [ 96%]
+test_pipeline.py::test_default_inference_execution PASSED               [100%]
+============================= 32 passed in 46.48s =============================
 ```
 
 ---
@@ -371,9 +375,22 @@ test_pipeline.py::test_evaluate_torchvision_pth PASSED                   [100%]
 
 ```
 MODEL-MAYHEM/
-├── .github/              # GitHub configurations
+├── submissions/
+│   └── CodeSplinter/     # Official contest submission directory
+│       ├── best.pt       # Trained YOLO11s checkpoint (6 canonical defect classes)
+│       ├── inference.py  # Production inference runner
+│       ├── predict.py    # Predict CLI wrapper
+│       ├── submission.csv# Validated submission CSV
+│       └── README.md     # CodeSplinter instructions
 ├── weights/
 │   └── best.pt           # Trained SOTA model weights checkpoint
+├── sample_images/        # Sample PCB images for immediate verification
+│   ├── pcb_001.jpg
+│   ├── pcb_002.jpg
+│   └── pcb_003.jpg
+├── best.pt               # Trained YOLO11s checkpoint (root alias)
+├── predict.py            # Predict CLI alias wrapper
+├── submission.csv        # 100% contest-compliant predictions CSV
 ├── train_colab.ipynb     # Interactive Google Colab notebook (GPU ready)
 ├── train.py              # CLI training script for YOLO11 / YOLOv8 / RT-DETR
 ├── train_torchvision.py  # PyTorch training script for Faster R-CNN with diverse backbones
@@ -382,7 +399,7 @@ MODEL-MAYHEM/
 ├── evaluate.py           # Official metric evaluator (mAP@50:90, mAP@50, Macro Recall)
 ├── data_setup.py         # Automated dataset downloader (Roboflow Universe integration)
 ├── verify_submission.py  # Automated contest submission validator
-├── test_pipeline.py      # Pytest automated test suite (28 passing tests)
+├── test_pipeline.py      # Pytest automated test suite (32 passing tests)
 ├── dataset.yaml          # Standard YOLO configuration for the 6 defect classes
 ├── requirements.txt      # Production pinned dependencies
 ├── required.txt          # Competition dependencies alias
@@ -395,8 +412,8 @@ MODEL-MAYHEM/
 
 Each team must submit:
 - [x] **Training Code:** `train.py`, `train_torchvision.py`, and `train_colab.ipynb`.
-- [x] **Model Weights:** `weights/best.pt`.
-- [x] **Inference Code:** `inference.py` and `ensemble.py`.
+- [x] **Model Weights:** `weights/best.pt` (and `submissions/CodeSplinter/best.pt`).
+- [x] **Inference Code:** `inference.py`, `predict.py`, and `ensemble.py`.
 - [x] **Dependencies:** `requirements.txt` / `required.txt`.
 - [x] **Execution Instructions:** Provided in this `readme.md`.
 - [x] **Predictions:** `submission.csv` (100% compliant with schema and pixel coordinate rules).

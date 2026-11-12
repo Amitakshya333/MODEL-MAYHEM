@@ -22,9 +22,35 @@ CANONICAL_CLASSES = [
 ]
 
 
+def find_default_weights() -> str:
+    """Locate best trained weights file from standard candidate paths."""
+    candidates = [
+        Path("weights/best.pt"),
+        Path("best.pt"),
+        Path("submissions/CodeSplinter/best.pt"),
+    ]
+    for c in candidates:
+        if c.is_file():
+            return str(c)
+    return "weights/best.pt"
+
+
+def find_default_data_yaml() -> str:
+    """Locate dataset configuration file from standard candidate paths."""
+    candidates = [
+        Path("dataset.yaml"),
+        Path("data.yaml"),
+        Path("data1.yaml"),
+    ]
+    for c in candidates:
+        if c.is_file():
+            return str(c)
+    return "dataset.yaml"
+
+
 def evaluate_model(
-    weights: str,
-    data_yaml: str = "dataset.yaml",
+    weights: str = "",
+    data_yaml: str = "",
     split: str = "val",
     imgsz: int = 1024,
     batch: int = 16,
@@ -33,6 +59,11 @@ def evaluate_model(
     conf: float = 0.001,
     iou: float = 0.6,
 ):
+    if not weights:
+        weights = find_default_weights()
+    if not data_yaml:
+        data_yaml = find_default_data_yaml()
+
     print("=" * 65)
     print("🔍 PCB DEFECT DETECTION - MODEL EVALUATION")
     print("=" * 65)
@@ -143,8 +174,8 @@ def evaluate_model(
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate YOLO PCB Defect Detector")
-    parser.add_argument("--weights", type=str, required=True, help="Path to model weights (.pt)")
-    parser.add_argument("--data", type=str, default="dataset.yaml", help="Path to dataset.yaml")
+    parser.add_argument("--weights", type=str, default=None, help="Path to model weights (.pt). Default: auto-detects weights/best.pt.")
+    parser.add_argument("--data", type=str, default=None, help="Path to dataset.yaml. Default: auto-detects dataset.yaml.")
     parser.add_argument("--split", type=str, default="val", choices=["val", "test", "train"], help="Split to evaluate")
     parser.add_argument("--imgsz", type=int, default=1024, help="Image size")
     parser.add_argument("--batch", type=int, default=16, help="Batch size")
@@ -155,9 +186,12 @@ def main():
 
     args = parser.parse_args()
 
+    w_arg = args.weights if args.weights else find_default_weights()
+    d_arg = args.data if args.data else find_default_data_yaml()
+
     evaluate_model(
-        weights=args.weights,
-        data_yaml=args.data,
+        weights=w_arg,
+        data_yaml=d_arg,
         split=args.split,
         imgsz=args.imgsz,
         batch=args.batch,
