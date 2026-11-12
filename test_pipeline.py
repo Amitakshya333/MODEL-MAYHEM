@@ -830,6 +830,86 @@ def test_default_inference_execution(tmp_path):
     assert set(df["class_name"].unique()).issubset(set(CANONICAL_CLASSES))
 
 
+def test_evaluator_data1_yaml_alignment():
+    """Verify that model classes strictly match evaluator data1.yaml from competition downloads."""
+    import yaml
+    data1_path = Path(r"C:\Users\AMITAKSHYA SUTAR\Downloads\data1.yaml")
+    if not data1_path.is_file():
+        pytest.skip("data1.yaml not present in Downloads")
+
+    with open(data1_path, "r", encoding="utf-8") as f:
+        data1_cfg = yaml.safe_load(f)
+
+    expected_names = [data1_cfg["names"][i] for i in range(len(data1_cfg["names"]))]
+    assert expected_names == CANONICAL_CLASSES
+
+    import torch
+    for wp in [Path("weights/best.pt"), Path("best.pt"), Path("submissions/CodeSplinter/best.pt")]:
+        ckpt = torch.load(str(wp), map_location="cpu", weights_only=False)
+        m_names = list(ckpt["model"].names.values())
+        assert m_names == expected_names, f"{wp} classes do not match data1.yaml"
+
+
+def test_zero_arg_evaluate_execution():
+    """Verify evaluate.py runs without arguments, detects default weights and data, and reports metrics."""
+    from evaluate import evaluate_model, find_default_weights, find_default_data_yaml
+    w = find_default_weights()
+    d = find_default_data_yaml()
+    assert Path(w).is_file()
+    assert Path(d).is_file()
+
+    metrics = evaluate_model(weights=w, data_yaml=d, split="val", imgsz=640, device="cpu")
+    assert "map50_90" in metrics
+    assert "map50" in metrics
+    assert "macro_recall" in metrics
+    assert metrics["map50_90"] > 0.0
+
+
+def test_submissions_codesplinter_inference_cwd_isolated(tmp_path):
+    """Verify inference.py inside submissions/CodeSplinter succeeds when CWD is submissions/CodeSplinter."""
+    import sys
+    import subprocess
+    sub_dir = Path("submissions/CodeSplinter").resolve()
+    result = subprocess.run(
+        [sys.executable, "inference.py", "--imgsz", "640", "--device", "cpu"],
+        cwd=str(sub_dir),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, f"inference.py failed in submissions dir:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (sub_dir / "submission.csv").is_file()
+    assert verify_submission(str(sub_dir / "submission.csv")) is True
+
+
+def test_submissions_codesplinter_predict_cwd_isolated():
+    """Verify predict.py inside submissions/CodeSplinter succeeds when CWD is submissions/CodeSplinter."""
+    import sys
+    import subprocess
+    sub_dir = Path("submissions/CodeSplinter").resolve()
+    result = subprocess.run(
+        [sys.executable, "predict.py", "--imgsz", "640", "--device", "cpu"],
+        cwd=str(sub_dir),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, f"predict.py failed in submissions dir:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+
+
+def test_data_yaml_compatibility():
+    """Verify that both data.yaml and dataset.yaml exist and have identical canonical definitions."""
+    import yaml
+    for p in [Path("data.yaml"), Path("dataset.yaml"), Path("dataset/data.yaml")]:
+        assert p.is_file(), f"{p} must exist"
+        with open(p, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        names = [cfg["names"][i] for i in range(len(cfg["names"]))]
+        assert names == CANONICAL_CLASSES
+
+
+
 
 
 

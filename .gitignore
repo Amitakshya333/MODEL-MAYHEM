@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 pcb_runs/
 runs/
-dataset/
+dataset/*
+!dataset/data.yaml
 *.zip
 pcb_ensemble_temp/
 yolo11n.pt

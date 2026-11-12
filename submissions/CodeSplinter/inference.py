@@ -34,21 +34,29 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def find_default_weights() -> List[str]:
-    """Locate the best trained weights file from standard paths."""
+    """Locate the best trained weights file from standard paths, checking CWD and script-relative paths."""
+    script_dir = Path(__file__).resolve().parent
     candidates = [
         Path("weights/best.pt"),
         Path("best.pt"),
         Path("submissions/CodeSplinter/best.pt"),
         Path("pcb_runs/yolo11x_pcb/weights/best.pt"),
+        script_dir / "weights" / "best.pt",
+        script_dir / "best.pt",
+        script_dir / "submissions" / "CodeSplinter" / "best.pt",
+        script_dir.parent / "weights" / "best.pt",
+        script_dir.parent / "best.pt",
+        script_dir.parent / "submissions" / "CodeSplinter" / "best.pt",
     ]
     for c in candidates:
         if c.is_file():
-            return [str(c)]
+            return [str(c.resolve())]
     return ["weights/best.pt"]
 
 
 def find_default_source() -> str:
-    """Locate test or validation images from standard paths."""
+    """Locate test or validation images from standard paths, checking CWD and script-relative paths."""
+    script_dir = Path(__file__).resolve().parent
     candidates = [
         Path("dataset/test/images"),
         Path("dataset/test"),
@@ -59,18 +67,47 @@ def find_default_source() -> str:
         Path("dataset"),
         Path("test_images"),
         Path("test"),
+        # Relative to script location
+        script_dir / "sample_images",
+        script_dir / "dataset" / "test" / "images",
+        script_dir / "dataset" / "test",
+        script_dir.parent / "sample_images",
+        script_dir.parent / "dataset" / "test" / "images",
+        script_dir.parent / "dataset" / "test",
+        script_dir.parent.parent / "sample_images",
+        script_dir.parent.parent / "dataset" / "test" / "images",
+        script_dir.parent.parent / "dataset" / "test",
+        # Testbench parent paths
+        Path("../../dataset/test/images"),
+        Path("../../dataset/test"),
+        Path("../dataset/test/images"),
+        Path("../dataset/test"),
+        Path("../sample_images"),
+        Path("../../sample_images"),
     ]
     for c in candidates:
         if c.is_dir():
-            imgs = [f for f in c.iterdir() if f.suffix.lower() in IMAGE_EXTENSIONS]
+            imgs = [f for f in c.rglob("*") if f.suffix.lower() in IMAGE_EXTENSIONS]
             if imgs:
-                return str(c)
+                return str(c.resolve())
+
+    # Fallback to sample_images or dataset/test/images
+    if (script_dir / "sample_images").is_dir():
+        return str((script_dir / "sample_images").resolve())
+    if (script_dir.parent / "sample_images").is_dir():
+        return str((script_dir.parent / "sample_images").resolve())
     return "sample_images" if Path("sample_images").is_dir() else "dataset/test/images"
 
 
 def get_image_files(source_path: str) -> List[Path]:
-    """Collect image paths from file, directory, or pattern."""
+    """Collect image paths from file, directory, or pattern with graceful fallbacks."""
     p = Path(source_path)
+    if not p.exists():
+        # Attempt resolution via find_default_source
+        alt = find_default_source()
+        if Path(alt).is_dir():
+            p = Path(alt)
+
     if p.is_file():
         if p.suffix.lower() in IMAGE_EXTENSIONS:
             return [p]
@@ -85,6 +122,13 @@ def get_image_files(source_path: str) -> List[Path]:
         imgs = [f for f in p.rglob("*") if f.suffix.lower() in IMAGE_EXTENSIONS]
         return sorted(imgs, key=lambda x: x.name)
     else:
+        # Fallback: check if sample_images can be found
+        for fallback_dir in [Path("sample_images"), Path(__file__).resolve().parent / "sample_images", Path(__file__).resolve().parent.parent / "sample_images"]:
+            if fallback_dir.is_dir():
+                fallback_imgs = [f for f in fallback_dir.glob("*") if f.suffix.lower() in IMAGE_EXTENSIONS]
+                if fallback_imgs:
+                    print(f"⚠️ Source '{source_path}' not found. Using fallback sample images: {fallback_dir}")
+                    return sorted(fallback_imgs, key=lambda x: x.name)
         raise FileNotFoundError(f"Source not found: {source_path}")
 
 

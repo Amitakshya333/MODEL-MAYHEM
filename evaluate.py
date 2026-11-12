@@ -24,27 +24,41 @@ CANONICAL_CLASSES = [
 
 def find_default_weights() -> str:
     """Locate best trained weights file from standard candidate paths."""
+    script_dir = Path(__file__).resolve().parent
     candidates = [
         Path("weights/best.pt"),
         Path("best.pt"),
         Path("submissions/CodeSplinter/best.pt"),
+        script_dir / "weights" / "best.pt",
+        script_dir / "best.pt",
+        script_dir / "submissions" / "CodeSplinter" / "best.pt",
+        script_dir.parent / "weights" / "best.pt",
+        script_dir.parent / "best.pt",
+        script_dir.parent / "submissions" / "CodeSplinter" / "best.pt",
     ]
     for c in candidates:
         if c.is_file():
-            return str(c)
+            return str(c.resolve())
     return "weights/best.pt"
 
 
 def find_default_data_yaml() -> str:
     """Locate dataset configuration file from standard candidate paths."""
+    script_dir = Path(__file__).resolve().parent
     candidates = [
         Path("dataset.yaml"),
         Path("data.yaml"),
         Path("data1.yaml"),
+        Path("dataset/data.yaml"),
+        script_dir / "dataset.yaml",
+        script_dir / "data.yaml",
+        script_dir / "dataset" / "data.yaml",
+        script_dir.parent / "data.yaml",
+        script_dir.parent / "dataset.yaml",
     ]
     for c in candidates:
         if c.is_file():
-            return str(c)
+            return str(c.resolve())
     return "dataset.yaml"
 
 
@@ -78,6 +92,27 @@ def evaluate_model(
         raise FileNotFoundError(f"Weights file not found: {weights}")
     if not Path(data_yaml).exists():
         raise FileNotFoundError(f"Data config not found: {data_yaml}")
+
+    import yaml
+    with open(data_yaml, "r", encoding="utf-8") as f:
+        data_cfg = yaml.safe_load(f)
+
+    # Check if requested split exists in dataset dir, otherwise switch gracefully
+    dataset_root = Path(data_cfg.get("path", "."))
+    if not dataset_root.is_absolute():
+        dataset_root = Path(data_yaml).parent / dataset_root
+
+    split_dir_name = data_cfg.get(split) or f"{split}/images"
+    split_dir = dataset_root / split_dir_name if not Path(split_dir_name).is_absolute() else Path(split_dir_name)
+
+    if not split_dir.exists():
+        for alt_split in ["val", "test", "valid", "train"]:
+            alt_dir_name = data_cfg.get(alt_split) or f"{alt_split}/images"
+            alt_dir = dataset_root / alt_dir_name if not Path(alt_dir_name).is_absolute() else Path(alt_dir_name)
+            if alt_dir.exists():
+                print(f"ℹ️ Requested split '{split}' not found at {split_dir}. Switching to available split '{alt_split}' at {alt_dir}.")
+                split = "val" if alt_split in ("val", "valid") else alt_split
+                break
 
     if str(weights).endswith(".pth"):
         import torch

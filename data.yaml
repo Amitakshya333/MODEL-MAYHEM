@@ -1,0 +1,18 @@
+# Dataset configuration for MODEL MAYHEM: PCB Defect Detection
+# Dataset: https://universe.roboflow.com/uthm-project-visionbased-pcb-defect-detection/pcb-defect-detection-9ewqw-duvuw/dataset/2
+
+# Path can be set to absolute or relative directory containing train/valid/test
+path: ./dataset # dataset root dir
+train: train/images # train images (relative to 'path')
+val: valid/images   # val images (relative to 'path')
+test: test/images   # test images (optional, relative to 'path')
+
+# Classes
+nc: 6
+names:
+  0: missing_hole
+  1: mouse_bite
+  2: open_circuit
+  3: short
+  4: spur
+  5: spurious_copper
