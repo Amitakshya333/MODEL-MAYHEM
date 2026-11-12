@@ -2,7 +2,10 @@ __pycache__/
 .pytest_cache/
 *.pyc
 pcb_runs/
-runs/
+runs/*
+!runs/detect/
+runs/detect/*
+!runs/detect/CodeSplinter_PCB/
 dataset/*
 !dataset/data.yaml
 *.zip

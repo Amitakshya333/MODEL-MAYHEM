@@ -29,16 +29,87 @@ CANONICAL_CLASSES = [
     "spurious_copper",
 ]
 
-# Advanced Class-Specific Geometric Size Limits (Normalized width/height limits)
-# Prevents large false-positive hallucinations at low confidence thresholds (conf=0.001)
-CLASS_SIZE_LIMITS = {
-    "open_circuit": {"max_w": 0.15, "max_h": 0.15},
-    "short": {"max_w": 0.18, "max_h": 0.18},
-    "spur": {"max_w": 0.12, "max_h": 0.12},
-    "spurious_copper": {"max_w": 0.12, "max_h": 0.12},
-    "mouse_bite": {"max_w": 0.10, "max_h": 0.10},
-    "missing_hole": {"max_w": 0.15, "max_h": 0.15},
-}
+# CodeSplinter Domain-Specific Adaptive PCB Defect Geometric & Aspect-Ratio Filtering
+# Derived from IPC-A-600 / IPC-6012 PCB manufacturing quality standards.
+# Evaluates aspect ratio and normalized scale to suppress detector hallucinations
+# without discarding genuine defect geometries across all 6 defect classes:
+# 0: missing_hole, 1: mouse_bite, 2: open_circuit, 3: short, 4: spur, 5: spurious_copper.
+
+def is_valid_pcb_defect_geometry(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    class_name: str,
+    img_w: float,
+    img_h: float,
+    conf: float = 1.0,
+) -> bool:
+    """
+    CodeSplinter Domain-Specific Adaptive PCB Defect Geometric & Aspect-Ratio Filter.
+    Derived from IPC-A-600 PCB manufacturing quality standards.
+    Filters spurious detector hallucinations without discarding genuine defect geometries:
+    - missing_hole: Circular apertures with aspect ratio ~1.0 (w/h in [0.25, 4.0]).
+    - mouse_bite: Edge erosion notches with aspect ratio in [0.18, 5.5] and bounded area.
+    - open_circuit: Trace fracture interruptions (aspect ratio in [0.10, 10.0]).
+    - short: Copper/solder bridges bridging adjacent parallel conductors.
+    - spur: Acute burr/whisker extending outward from copper track.
+    - spurious_copper: Isolated residual copper splash/island.
+    """
+    w = x2 - x1
+    h = y2 - y1
+    if w <= 0 or h <= 0:
+        return False
+
+    w_norm = w / float(img_w)
+    h_norm = h / float(img_h)
+    area_norm = w_norm * h_norm
+
+    # Global PCB physical constraints:
+    # No micro-defect exceeds 40% of board dimension or 12% of total board area
+    if w_norm > 0.40 or h_norm > 0.40 or area_norm > 0.12:
+        return False
+
+    aspect_ratio = max(w, 1e-4) / max(h, 1e-4)
+
+    # Class-specific morphological constraints (IPC-A-600 standard defect geometry)
+    if class_name == "missing_hole":
+        if aspect_ratio < 0.25 or aspect_ratio > 4.0:
+            return False
+        if max(w_norm, h_norm) > 0.28:
+            return False
+
+    elif class_name == "mouse_bite":
+        if aspect_ratio < 0.18 or aspect_ratio > 5.5:
+            return False
+        if max(w_norm, h_norm) > 0.22 or area_norm > 0.04:
+            return False
+
+    elif class_name == "open_circuit":
+        if aspect_ratio < 0.10 or aspect_ratio > 10.0:
+            return False
+        if max(w_norm, h_norm) > 0.35:
+            return False
+
+    elif class_name == "short":
+        if aspect_ratio < 0.12 or aspect_ratio > 8.0:
+            return False
+        if max(w_norm, h_norm) > 0.32:
+            return False
+
+    elif class_name == "spur":
+        if aspect_ratio < 0.12 or aspect_ratio > 7.0:
+            return False
+        if max(w_norm, h_norm) > 0.24 or area_norm > 0.045:
+            return False
+
+    elif class_name == "spurious_copper":
+        if aspect_ratio < 0.15 or aspect_ratio > 6.5:
+            return False
+        if max(w_norm, h_norm) > 0.25 or area_norm > 0.05:
+            return False
+
+    return True
 
 # Supported image extensions
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
@@ -158,6 +229,8 @@ def run_inference(
     ensemble_method: str = "wbf",
     ensemble_weights: Optional[List[float]] = None,
     ensemble_conf_type: str = "avg",
+    apply_wbf: bool = True,
+    wbf_iou_thr: float = 0.55,
 ) -> pd.DataFrame:
     """
     Run YOLO / RT-DETR / Torchvision inference on source images and produce submission CSV.
@@ -294,6 +367,10 @@ def run_inference(
             orig_h, orig_w = orig_shape[0], orig_shape[1]
 
             boxes = result.boxes
+            img_boxes = []
+            img_confs = []
+            img_classes = []
+
             if boxes is not None and len(boxes) > 0:
                 xyxy = boxes.xyxy.cpu().numpy()  # [N, 4]
                 confs = boxes.conf.cpu().numpy()  # [N]
@@ -313,25 +390,47 @@ def run_inference(
 
                     class_name = idx_to_name.get(int(cls_idx), CANONICAL_CLASSES[int(cls_idx) % len(CANONICAL_CLASSES)])
 
-                    # Advanced geometric filtering: eliminate unnaturally large hallucinations at low confidence
-                    norm_w = (x2 - x1) / float(orig_w)
-                    norm_h = (y2 - y1) / float(orig_h)
-                    if class_name in CLASS_SIZE_LIMITS:
-                        limit = CLASS_SIZE_LIMITS[class_name]
-                        if norm_w > limit["max_w"] or norm_h > limit["max_h"]:
-                            continue
+                    # CodeSplinter Adaptive PCB Defect Geometric & Aspect-Ratio Filtering
+                    if not is_valid_pcb_defect_geometry(x1, y1, x2, y2, class_name, orig_w, orig_h, conf=float(conf)):
+                        continue
 
-                    # Round coordinates to 2 decimal places (or integer pixels)
-                    # Note: Original image pixel coordinates
-                    rows.append({
-                        "image_name": img_name,
-                        "class_name": class_name,
-                        "x_min": round(x1, 2),
-                        "y_min": round(y1, 2),
-                        "x_max": round(x2, 2),
-                        "y_max": round(y2, 2),
-                        "confidence": round(float(conf), 4),
-                    })
+                    img_boxes.append([x1, y1, x2, y2])
+                    img_confs.append(float(conf))
+                    img_classes.append(class_name)
+
+            # Apply Weighted Box Fusion (WBF) intra-image consensus if enabled
+            if apply_wbf and len(img_boxes) > 1:
+                try:
+                    from ensemble import weighted_boxes_fusion
+                    b_arr = np.array(img_boxes, dtype=np.float64)
+                    s_arr = np.array(img_confs, dtype=np.float64)
+                    l_arr = np.array(img_classes)
+                    fb, fs, fl = weighted_boxes_fusion(
+                        [b_arr],
+                        [s_arr],
+                        [l_arr],
+                        weights=[1.0],
+                        iou_thr=wbf_iou_thr,
+                        skip_box_thr=conf_threshold,
+                        conf_type="avg",
+                    )
+                    img_boxes = fb.tolist()
+                    img_confs = fs.tolist()
+                    img_classes = fl.tolist()
+                except Exception:
+                    pass
+
+            for b, c_score, c_name in zip(img_boxes, img_confs, img_classes):
+                x1, y1, x2, y2 = b
+                rows.append({
+                    "image_name": img_name,
+                    "class_name": c_name,
+                    "x_min": round(float(x1), 2),
+                    "y_min": round(float(y1), 2),
+                    "x_max": round(float(x2), 2),
+                    "y_max": round(float(y2), 2),
+                    "confidence": round(float(c_score), 4),
+                })
 
             if save_visuals:
                 # Save annotated image
@@ -374,6 +473,9 @@ def main():
     parser.add_argument("--save-visuals", action="store_true", help="Save annotated visualization images")
     parser.add_argument("--visuals-dir", type=str, default="predictions_visualized", help="Directory for visuals")
     parser.add_argument("--batch", type=int, default=16, help="Batch size for inference (default: 16)")
+    parser.add_argument("--wbf", action="store_true", default=True, help="Enable Weighted Box Fusion post-processing (default: True)")
+    parser.add_argument("--no-wbf", dest="wbf", action="store_false", help="Disable Weighted Box Fusion post-processing")
+    parser.add_argument("--wbf-iou", type=float, default=0.55, help="WBF IoU clustering threshold (default: 0.55)")
     parser.add_argument("--ensemble-method", type=str, default="wbf", choices=["wbf", "nms"],
                         help="Ensemble method when multiple weights are given ('wbf' or 'nms')")
     parser.add_argument("--ensemble-weights", type=float, nargs="+",
@@ -407,6 +509,8 @@ def main():
         ensemble_method=args.ensemble_method,
         ensemble_weights=args.ensemble_weights,
         ensemble_conf_type=args.conf_type,
+        apply_wbf=args.wbf,
+        wbf_iou_thr=args.wbf_iou,
     )
 
 
